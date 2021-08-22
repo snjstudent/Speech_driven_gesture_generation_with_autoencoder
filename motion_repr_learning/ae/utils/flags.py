@@ -5,11 +5,16 @@ from __future__ import division
 import os
 from os.path import join as pjoin
 
-import tensorflow as tf
+# import tensorflow as tf
+
+import tensorflow.compat.v1 as tf
 
 # Modify this function to set your home directory for this repo
+
+
 def home_out(path):
     return pjoin(os.environ['HOME'], 'tmp', 'MoCap', path)
+
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -18,21 +23,25 @@ FLAGS = flags.FLAGS
 
 #                       Flags about the sequence processing
 
-flags.DEFINE_integer('chunk_length', 1, 'Length of the chunks, for the data processing.')
+flags.DEFINE_integer(
+    'chunk_length', 1, 'Length of the chunks, for the data processing.')
 
 #                               Flags about training
 flags.DEFINE_float('learning_rate', 0.0001,
                    'learning rate for training .')
-flags.DEFINE_float('pretraining_learning_rate', 0.001 ,
+flags.DEFINE_float('pretraining_learning_rate', 0.001,
                    'learning rate for training .')
 
 flags.DEFINE_float('variance_of_noise', 0.05, 'Coefficient for the gaussian noise '
                                               'added to every point in input during the training')
 
-flags.DEFINE_boolean('pretrain', False,' Whether we pretrain the model in a layerwise way')
-flags.DEFINE_boolean('restore', False,' Whether we restore the model from the checkpoint')
+flags.DEFINE_boolean(
+    'pretrain', False, ' Whether we pretrain the model in a layerwise way')
+flags.DEFINE_boolean(
+    'restore', False, ' Whether we restore the model from the checkpoint')
 
-flags.DEFINE_boolean('evaluate', False, ' Whether we are evaluating the system')
+flags.DEFINE_boolean(
+    'evaluate', False, ' Whether we are evaluating the system')
 
 flags.DEFINE_float('dropout', 0.9, 'Probability to keep the neuron on')
 
@@ -52,14 +61,18 @@ flags.DEFINE_float('delta_for_early_stopping', 0.5, 'How much worst the results 
                                                     ' 0.05 mean 5% worst than best we had.')
 
 #                       Network Architecture Specific Flags
-flags.DEFINE_integer('frame_size', 384, 'Dimensionality of the input for a single frame')
+flags.DEFINE_integer(
+    'frame_size', 384, 'Dimensionality of the input for a single frame')
 
 flags.DEFINE_integer("num_hidden_layers", 1, "Number of hidden layers")
 flags.DEFINE_integer("middle_layer", 1, "Number of hidden layers")
 
-flags.DEFINE_integer('layer1_width', 312, 'Number of units in each hidden layer ')
-flags.DEFINE_integer('layer2_width', 248, 'Number of units in each hidden layer ')
-flags.DEFINE_integer('layer3_width', 312, 'Number of units in each hidden layer ')
+flags.DEFINE_integer('layer1_width', 312,
+                     'Number of units in each hidden layer ')
+flags.DEFINE_integer('layer2_width', 248,
+                     'Number of units in each hidden layer ')
+flags.DEFINE_integer('layer3_width', 312,
+                     'Number of units in each hidden layer ')
 
 #                           Constants
 

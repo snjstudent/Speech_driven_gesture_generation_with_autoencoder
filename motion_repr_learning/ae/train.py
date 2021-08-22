@@ -8,13 +8,14 @@ Developed by Taras Kucherenko (tarask@kth.se)
 """
 
 import time
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.python import debug as tf_debug
 import numpy as np
 
 from DAE import DAE
 import utils.utils as ut
 import utils.flags as fl
+
 
 class DataInfo(object):
     """Information about the datasets
@@ -82,7 +83,8 @@ def learning(data, data_info, just_restore=False):
             exit(1)
 
         # Allow TensorFlow to change device allocation when needed
-        config = tf.ConfigProto(allow_soft_placement=True)  # log_device_placement=True)
+        # log_device_placement=True)
+        config = tf.ConfigProto(allow_soft_placement=True)
         # Adjust configuration so that multiple executions are possible
         config.gpu_options.allow_growth = True
 
@@ -90,7 +92,8 @@ def learning(data, data_info, just_restore=False):
         sess = tf.Session(config=config)
 
         if debug:
-            sess = tf_debug.TensorBoardDebugWrapperSession(sess, "taras-All-Series:6064")
+            sess = tf_debug.TensorBoardDebugWrapperSession(
+                sess, "taras-All-Series:6064")
 
         # Create a neural network
         shape = [fl.FLAGS.frame_size * fl.FLAGS.chunk_length] + hidden_shapes + [
@@ -112,19 +115,23 @@ def learning(data, data_info, just_restore=False):
 
             # Do gradient clipping
             tvars = tf.trainable_variables()
-            grads, _ = tf.clip_by_global_norm(tf.gradients(nn._loss, tvars), 1e12)
+            grads, _ = tf.clip_by_global_norm(
+                tf.gradients(nn._loss, tvars), 1e12)
             train_op = optimizer.apply_gradients(zip(grads, tvars),
                                                  global_step=tf.train.get_or_create_global_step())
 
             # Prepare for making a summary for TensorBoard
-            train_error = tf.placeholder(dtype=tf.float32, shape=(), name='train_error')
-            eval_error = tf.placeholder(dtype=tf.float32, shape=(), name='eval_error')
+            train_error = tf.placeholder(
+                dtype=tf.float32, shape=(), name='train_error')
+            eval_error = tf.placeholder(
+                dtype=tf.float32, shape=(), name='eval_error')
 
             train_summary_op = tf.summary.scalar('Train_error', train_error)
             eval_summary_op = tf.summary.scalar('Validation_error', eval_error)
 
             summary_dir = fl.FLAGS.summary_dir
-            summary_writer = tf.summary.FileWriter(summary_dir, graph=tf.get_default_graph())
+            summary_writer = tf.summary.FileWriter(
+                summary_dir, graph=tf.get_default_graph())
 
             num_batches = int(data.train.num_sequences / batch_size)
 
@@ -142,16 +149,18 @@ def learning(data, data_info, just_restore=False):
                 layers_amount = len(nn.shape) - 2
 
                 # create an optimizers
-                pretrain_optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+                pretrain_optimizer = tf.train.AdamOptimizer(
+                    learning_rate=learning_rate)
 
                 # Make an array of the trainers for all the layers
                 trainers = [pretrain_optimizer.minimize(
                     ut.loss_reconstruction(nn.run_less_layers(nn._input_, i+1),
-                                           nn.run_less_layers(nn._input_, i+1, is_target=True),
+                                           nn.run_less_layers(
+                                               nn._input_, i+1, is_target=True),
                                            max_val, pretrain=True),
                     global_step=tf.train.get_or_create_global_step(),
                     name='Layer_wise_optimizer_'+str(i))
-                            for i in range(layers_amount)]
+                    for i in range(layers_amount)]
 
                 # Initialize all the variables
                 sess.run(tf.global_variables_initializer())
@@ -182,7 +191,8 @@ def learning(data, data_info, just_restore=False):
 
                 # Pretrain
                 if fl.FLAGS.pretrain:
-                    layerwise_pretrain(nn, trainers, layers_amount, num_batches)
+                    layerwise_pretrain(
+                        nn, trainers, layers_amount, num_batches)
 
                 # Train the whole network jointly
                 step = 0
@@ -194,7 +204,8 @@ def learning(data, data_info, just_restore=False):
                 print("|------------  |------|")
 
                 while not coord.should_stop():
-                    _, train_error_ = sess.run([train_op, nn._reconstruction_loss], feed_dict={})
+                    _, train_error_ = sess.run(
+                        [train_op, nn._reconstruction_loss], feed_dict={})
 
                     if step % num_batches == 0:
                         epoch = step * 1.0 / num_batches
@@ -204,17 +215,23 @@ def learning(data, data_info, just_restore=False):
 
                         # Print results of screen
                         epoch_str = "| {0:3.0f} ".format(epoch)[:5]
-                        perc_str = "({0:3.2f}".format(epoch*100.0 / fl.FLAGS.training_epochs)[:5]
-                        error_str = "%) |{0:5.2f}".format(train_error_)[:10] + "|"
+                        perc_str = "({0:3.2f}".format(
+                            epoch*100.0 / fl.FLAGS.training_epochs)[:5]
+                        error_str = "%) |{0:5.2f}".format(
+                            train_error_)[:10] + "|"
                         print(epoch_str, perc_str, error_str)
 
                         if epoch % 5 == 0 and test:
 
-                            rmse = test(nn, fl.FLAGS.data_dir + '/test_1.binary')
-                            print("\nOur RMSE for the first test sequence is : ", rmse)
+                            rmse = test(nn, fl.FLAGS.data_dir +
+                                        '/test_1.binary')
+                            print(
+                                "\nOur RMSE for the first test sequence is : ", rmse)
 
-                            rmse = test(nn, fl.FLAGS.data_dir + '/test_2.binary')
-                            print("\nOur RMSE for the second test sequenceis : ", rmse)
+                            rmse = test(nn, fl.FLAGS.data_dir +
+                                        '/test_2.binary')
+                            print(
+                                "\nOur RMSE for the second test sequenceis : ", rmse)
 
                         if epoch > 0:
                             summary_writer.add_summary(train_summary, step)
@@ -222,7 +239,8 @@ def learning(data, data_info, just_restore=False):
                             # Evaluate on the validation sequences
                             error_sum = 0
                             for valid_batch in range(num_valid_batches):
-                                curr_err = sess.run([nn._valid_loss], feed_dict={})
+                                curr_err = sess.run(
+                                    [nn._valid_loss], feed_dict={})
                                 error_sum += curr_err[0]
                             new_error = error_sum / (num_valid_batches)
                             eval_sum = sess.run(eval_summary_op,
@@ -232,7 +250,8 @@ def learning(data, data_info, just_restore=False):
                             # Early stopping
                             if fl.FLAGS.early_stopping:
                                 if (new_error - best_error) / best_error > delta:
-                                    print('After ' + str(step) + ' steps started overfitting')
+                                    print('After ' + str(step) +
+                                          ' steps started overfitting')
                                     break
                                 if new_error < best_error:
                                     best_error = new_error
@@ -244,7 +263,8 @@ def learning(data, data_info, just_restore=False):
                                 # Save for the model
                                 save_path = saver.save(sess, chkpt_file)
                                 print('Done training for %d epochs' % (epoch))
-                                print("The model was saved in file: %s" % save_path)
+                                print("The model was saved in file: %s" %
+                                      save_path)
 
                     step += 1
 
@@ -252,7 +272,8 @@ def learning(data, data_info, just_restore=False):
                 if not fl.FLAGS.early_stopping:
                     # Save the model
                     save_path = saver.save(sess, chkpt_file)
-                print('Done training for %d epochs, %d steps.' % (fl.FLAGS.training_epochs, step))
+                print('Done training for %d epochs, %d steps.' %
+                      (fl.FLAGS.training_epochs, step))
                 print("The final model was saved in file: %s" % save_path)
             finally:
                 # When done, ask the threads to stop.
@@ -261,7 +282,8 @@ def learning(data, data_info, just_restore=False):
             # Wait for threads to finish.
             coord.join(threads)
 
-        duration = (time.time() - start_time) / 60  # in minutes, instead of seconds
+        duration = (time.time() - start_time) / \
+            60  # in minutes, instead of seconds
 
         print("The training was running for %.3f  min" % (duration))
 
@@ -272,6 +294,7 @@ def learning(data, data_info, just_restore=False):
 ####         INTERFACE FUNCTIONS        #######
 ####                                    #######
 ###############################################
+
 
 def encode(nn, input_seq):
     """ Obtaining a representation from AE (AutoEncoder)
@@ -302,7 +325,8 @@ def encode(nn, input_seq):
         if Preprocess:
             coords_minus_mean = input_seq - mean_pose[np.newaxis, :]
             eps = 1e-15
-            coords_normalized = np.divide(coords_minus_mean, max_val[np.newaxis, :] + eps)
+            coords_normalized = np.divide(
+                coords_minus_mean, max_val[np.newaxis, :] + eps)
         else:
             coords_normalized = input_seq
 
@@ -312,7 +336,8 @@ def encode(nn, input_seq):
                                         coords_normalized.shape[0]) + 1
 
             # Pad the sequence with itself in order to fill the sequence completely
-            coords_normalized = np.tile(coords_normalized, (mupliplication_factor, 1))
+            coords_normalized = np.tile(
+                coords_normalized, (mupliplication_factor, 1))
             print("Test sequence was way too short!")
 
         # Split it into chunks
@@ -321,7 +346,8 @@ def encode(nn, input_seq):
                                 (-1, fl.FLAGS.frame_size*fl.FLAGS.chunk_length))
 
         if all_chunks.shape[0] < nn.batch_size:
-            mupliplication_factor = int(nn.batch_size / all_chunks.shape[0]) + 1
+            mupliplication_factor = int(
+                nn.batch_size / all_chunks.shape[0]) + 1
 
             # Pad the sequence with itself in order to fill the batch completely
             all_chunks = np.tile(all_chunks, (mupliplication_factor, 1))
@@ -348,6 +374,7 @@ def encode(nn, input_seq):
         output_vec = np.reshape(output_batches, (-1, output_batches.shape[-1]))
 
         return output_vec
+
 
 def decode(nn, represent_vec):
     """ Decoding a representation from AE (AutoEncoder)
@@ -385,7 +412,8 @@ def decode(nn, represent_vec):
         all_chunks = represent_vec
 
         if all_chunks.shape[0] < nn.batch_size:
-            mupliplication_factor = int(nn.batch_size / all_chunks.shape[0]) + 1
+            mupliplication_factor = int(
+                nn.batch_size / all_chunks.shape[0]) + 1
 
             # Pad the sequence with itself in order to fill the batch completely
             all_chunks = np.tile(all_chunks, (mupliplication_factor, 1))
@@ -408,10 +436,12 @@ def decode(nn, represent_vec):
                 if output_batches.size else np.array(output_batch)
 
         # Postprocess...
-        output_vec = np.reshape(output_batches, (-1, fl.FLAGS.chunk_length * fl.FLAGS.frame_size))
+        output_vec = np.reshape(
+            output_batches, (-1, fl.FLAGS.chunk_length * fl.FLAGS.frame_size))
 
         # Convert back to original values
-        reconstructed = ut.convert_back_to_3d_coords(output_vec, max_val, mean_pose)
+        reconstructed = ut.convert_back_to_3d_coords(
+            output_vec, max_val, mean_pose)
 
         return reconstructed
 
@@ -420,6 +450,7 @@ def decode(nn, represent_vec):
 ####      LAYERWISE PRETRAINING         #######
 ####                                    #######
 ###############################################
+
 
 def layerwise_pretrain(nn, trainers, layers_amount, num_batches):
     """
@@ -440,16 +471,19 @@ def layerwise_pretrain(nn, trainers, layers_amount, num_batches):
 
     for i in range(layers_amount):
         n = i + 1
-        print('Pretraining layer number ', n, ' for ', fl.FLAGS.pretraining_epochs, ' epochs ... ')
+        print('Pretraining layer number ', n, ' for ',
+              fl.FLAGS.pretraining_epochs, ' epochs ... ')
 
         with tf.variable_scope("layer_{0}".format(n)):
 
             layer = nn.run_less_layers(nn._input_, n)
 
             with tf.name_scope("pretraining_loss"):
-                target_for_loss = nn.run_less_layers(nn._input_, n, is_target=True)
+                target_for_loss = nn.run_less_layers(
+                    nn._input_, n, is_target=True)
 
-            loss = ut.loss_reconstruction(target_for_loss, layer, None, pretrain=True),
+            loss = ut.loss_reconstruction(
+                target_for_loss, layer, None, pretrain=True),
 
             pretrain_trainer = trainers[i]
 
@@ -458,9 +492,10 @@ def layerwise_pretrain(nn, trainers, layers_amount, num_batches):
                 loss_summary, loss_value = sess.run([pretrain_trainer, loss])
 
                 if debug:
-                    if steps%num_batches == 0:
-                        print("After "+ str(steps/num_batches)+" epochs loss is "+ str(loss_value))
+                    if steps % num_batches == 0:
+                        print("After " + str(steps/num_batches) +
+                              " epochs loss is " + str(loss_value))
 
             # Copy the trained weights to the fixed matrices and biases
-            nn['matrix'+str(n)+ '_pretrained'] = nn._w(n)
-            nn['bias'+str(n)+ '_pretrained'] = nn._b(n)
+            nn['matrix'+str(n) + '_pretrained'] = nn._w(n)
+            nn['bias'+str(n) + '_pretrained'] = nn._b(n)

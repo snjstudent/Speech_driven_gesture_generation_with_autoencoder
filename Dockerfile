@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM nvcr.io/nvidia/pytorch:21.02-py3
 SHELL ["/bin/bash", "-c"]
 
 
@@ -14,5 +14,8 @@ ENV TZ=Asia/Tokyo
 RUN apt-get install -y mpich git cron curl make
 RUN apt install -y ffmpeg sox
 
-RUN pip3 install -U pip && \
-    pip3 install tensorflow==1.2.1
+COPY requirements.txt ./
+# RUN pip3 install -U pip && \
+RUN ls
+RUN pip3 install -r ./requirements.txt 
+    # pip3 install tensorflow==1.2.1

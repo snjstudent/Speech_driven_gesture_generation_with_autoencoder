@@ -10,7 +10,7 @@ Developed by Taras Kucherenko (tarask@kth.se)
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 
 from utils.utils import add_noise, loss_reconstruction
@@ -44,7 +44,8 @@ class DAE:
           data_info:      key information about the dataset
         """
 
-        self.__shape = shape  # [input_dim,hidden1_dim,...,hidden_n_dim,output_dim]
+        # [input_dim,hidden1_dim,...,hidden_n_dim,output_dim]
+        self.__shape = shape
         self.__variables = {}
         self.__sess = sess
 
@@ -55,10 +56,9 @@ class DAE:
 
         self.scaling_factor = 1
 
-	    # maximal value and mean pose in the dataset (used for scaling it to interval [-1,1] and back)
+        # maximal value and mean pose in the dataset (used for scaling it to interval [-1,1] and back)
         self.max_val = data_info.max_val
         self.mean_pose = data_info.mean_pose
-
 
         #################### Add the DATASETS to the GRAPH ###############
 
@@ -67,8 +67,10 @@ class DAE:
                                                       shape=data_info.train_shape)
         self._train_data = tf.Variable(self._train_data_initializer,
                                        trainable=False, collections=[], name='Train_data')
-        train_epochs = FLAGS.training_epochs + FLAGS.pretraining_epochs * FLAGS.num_hidden_layers
-        train_frames = tf.train.slice_input_producer([self._train_data], num_epochs=train_epochs)
+        train_epochs = FLAGS.training_epochs + \
+            FLAGS.pretraining_epochs * FLAGS.num_hidden_layers
+        train_frames = tf.train.slice_input_producer(
+            [self._train_data], num_epochs=train_epochs)
         self._train_batch = tf.train.shuffle_batch(train_frames,
                                                    batch_size=FLAGS.batch_size, capacity=5000,
                                                    min_after_dequeue=1000, name='Train_batch')
@@ -106,15 +108,19 @@ class DAE:
                 ''' 1 - Setup network for TRAINing '''
                 # Input noisy data and reconstruct the original one
                 # as in Denoising AutoEncoder
-                self._input_ = add_noise(self._train_batch, variance_coef, data_info.data_sigma)
+                self._input_ = add_noise(
+                    self._train_batch, variance_coef, data_info.data_sigma)
                 self._target_ = self._train_batch
 
                 # Define output and loss for the training data
-                self._output, _, _ = self.construct_graph(self._input_, FLAGS.dropout)
+                self._output, _, _ = self.construct_graph(
+                    self._input_, FLAGS.dropout)
                 self._reconstruction_loss = loss_reconstruction(self._output,
                                                                 self._target_, self.max_val)
-                tf.add_to_collection('losses', self._reconstruction_loss)  # add weight decay loses
-                self._loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+                # add weight decay loses
+                tf.add_to_collection('losses', self._reconstruction_loss)
+                self._loss = tf.add_n(tf.get_collection(
+                    'losses'), name='total_loss')
 
                 ''' 2 - Setup network for TESTing '''
                 self._valid_input_ = self._valid_batch
@@ -127,6 +133,7 @@ class DAE:
                 # Define loss
                 self._valid_loss = loss_reconstruction(self._valid_output,
                                                        self._valid_target_, self.max_val)
+
     @property
     def session(self):
         """ Interface for the session"""
@@ -164,7 +171,6 @@ class DAE:
         return y
 
     def construct_graph(self, input_seq_pl, dropout):
-
         """ Construct a TensorFlow graph for the AutoEncoding network
 
         Args:
@@ -209,8 +215,8 @@ class DAE:
 
         with tf.name_scope("Decoding"):
 
-            layer = self._representation = tf.placeholder\
-                (dtype=tf.float32, shape=middle_layer.get_shape().as_list(), name="Respres.")
+            layer = self._representation = tf.placeholder(
+                dtype=tf.float32, shape=middle_layer.get_shape().as_list(), name="Respres.")
 
             for i in range(FLAGS.middle_layer, numb_layers):
 
@@ -279,7 +285,8 @@ class DAE:
 
         # Add weight to the loss function for weight decay
         if wd is not None:
-            weight_decay = tf.multiply(tf.nn.l2_loss(self[name_w]), wd, name='wgt_'+str(i)+'_loss')
+            weight_decay = tf.multiply(tf.nn.l2_loss(
+                self[name_w]), wd, name='wgt_'+str(i)+'_loss')
             tf.add_to_collection('losses', weight_decay)
 
         # Add the histogram summary
@@ -288,14 +295,15 @@ class DAE:
         # Initialize Train biases
         name_b = "bias"+str(i + 1)
         b_shape = (self.__shape[i + 1],)
-        self[name_b] = tf.get_variable("Variables/"+name_b, initializer=tf.zeros(b_shape))
+        self[name_b] = tf.get_variable(
+            "Variables/"+name_b, initializer=tf.zeros(b_shape))
 
         if i < self.num_hidden_layers:
             # Hidden layer pretrained weights
             # which are used after pretraining before fine-tuning
-            self[name_w + "_pretr"] = tf.get_variable(name="Var/" + name_w + "_pretr", initializer=
-                                                      tf.random_uniform(w_shape, -1 * a, a),
-                                                      trainable=False)
+            self[name_w + "_pretr"] = tf.get_variable(name="Var/" + name_w + "_pretr", initializer=tf.random_uniform(
+                w_shape, -1 * a, a),
+                trainable=False)
             # Hidden layer pretrained biases
             self[name_b + "_pretr"] = tf.get_variable("Var/"+name_b+"_pretr", trainable=False,
                                                       initializer=tf.zeros(b_shape))
@@ -335,6 +343,7 @@ class DAE:
 
         last_output = self._feedforward(last_output, self._w(n), self._b(n))
 
-        out = self._feedforward(last_output, self._w(n), self["bias" + str(n) + "_out"])
+        out = self._feedforward(last_output, self._w(
+            n), self["bias" + str(n) + "_out"])
 
         return out
